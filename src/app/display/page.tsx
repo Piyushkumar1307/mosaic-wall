@@ -10,7 +10,7 @@ const CARD_W = 110;
 const CARD_H = 154;
 const FLOAT_PAD = 14;
 const POP_MS = 1400;
-const MOVE_MS = 1200;
+const MOVE_MS = 900;
 const POLL_MS = 500;
 
 type CardPhase = "entering" | "settled" | "exiting";
@@ -128,10 +128,8 @@ function EnteringCard({
   onComplete: (id: number) => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [stage, setStage] = useState<"pop" | "move">("pop");
-  const [center, setCenter] = useState({ x: 0, y: 0 });
   const completedRef = useRef(false);
-  const displaySlot = getDisplaySlot(message);
+  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
 
   const finish = useCallback(() => {
     if (completedRef.current) return;
@@ -140,121 +138,67 @@ function EnteringCard({
   }, [message.id, onComplete]);
 
   useEffect(() => {
-    const updateCenter = () => setCenter(getCenterPoint());
-    updateCenter();
-    window.addEventListener("resize", updateCenter);
-    return () => window.removeEventListener("resize", updateCenter);
+    setOrigin(getCenterPoint());
+    const onResize = () => setOrigin(getCenterPoint());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, [getCenterPoint]);
 
   useEffect(() => {
-    const fallbackTimer = setTimeout(() => {
-      setStage((current) => (current === "pop" ? "move" : current));
-    }, POP_MS + 100);
+    if (!origin) return;
 
-    return () => clearTimeout(fallbackTimer);
-  }, []);
+    const startLeft = origin.x - CARD_W / 2;
+    const startTop = origin.y - CARD_H / 2;
 
-  const handlePopEnd = useCallback(
-    (event: React.AnimationEvent<HTMLDivElement>) => {
-      if (event.target !== event.currentTarget) return;
-      if (stage !== "pop") return;
-      const name = event.animationName;
-      if (name !== "pop-center" && !name.endsWith("pop-center")) return;
-      setStage("move");
-    },
-    [stage]
-  );
+    let finishTimer: ReturnType<typeof setTimeout>;
 
-  useEffect(() => {
-    if (stage !== "move") return;
-
-    let moveTimer: ReturnType<typeof setTimeout>;
-    let attempts = 0;
-    let cleaned = false;
-
-    function runMove() {
+    const popTimer = setTimeout(() => {
       const card = cardRef.current;
       const target = getSlotElement();
 
       if (!card || !target) {
-        attempts += 1;
-        if (attempts < 30) {
-          moveTimer = setTimeout(runMove, 50);
-          return;
-        }
         finish();
         return;
       }
 
-      const cardRect = card.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
 
-      const cardCx = cardRect.left + cardRect.width / 2;
-      const cardCy = cardRect.top + cardRect.height / 2;
-      const targetCx = targetRect.left + targetRect.width / 2;
-      const targetCy = targetRect.top + targetRect.height / 2;
-
-      const dx = targetCx - cardCx;
-      const dy = targetCy - cardCy;
-
-      const onTransitionEnd = (event: TransitionEvent) => {
-        if (event.propertyName !== "transform" || cleaned) return;
-        cleaned = true;
-        card.removeEventListener("transitionend", onTransitionEnd);
-        clearTimeout(moveTimer);
-        finish();
-      };
-
-      // Snap to exact pixel position before starting CSS transition (prevents pop→glide jump)
       card.classList.remove("animate-pop-enter");
       card.style.animation = "none";
+      card.style.transform = "scale(1)";
+      card.style.left = `${startLeft}px`;
+      card.style.top = `${startTop}px`;
       card.style.transition = "none";
-      card.style.left = `${cardCx}px`;
-      card.style.top = `${cardCy}px`;
-      card.style.transform = "translate(-50%, -50%) scale(1)";
 
       void card.offsetHeight;
 
-      card.addEventListener("transitionend", onTransitionEnd);
+      card.style.transition = `left ${MOVE_MS}ms ease-in-out, top ${MOVE_MS}ms ease-in-out`;
+      card.style.left = `${targetRect.left}px`;
+      card.style.top = `${targetRect.top}px`;
 
-      requestAnimationFrame(() => {
-        card.style.transition = `transform ${MOVE_MS}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
-        card.style.transform = `translate3d(calc(-50% + ${dx}px), calc(-50% + ${dy}px), 0) scale(1)`;
-      });
+      finishTimer = setTimeout(finish, MOVE_MS + 50);
+    }, POP_MS);
 
-      moveTimer = setTimeout(() => {
-        if (cleaned) return;
-        cleaned = true;
-        card.removeEventListener("transitionend", onTransitionEnd);
-        finish();
-      }, MOVE_MS + 250);
-    }
-
-    // Small delay so pop animation fully commits before measuring
-    moveTimer = setTimeout(runMove, 32);
     return () => {
-      cleaned = true;
-      clearTimeout(moveTimer);
+      clearTimeout(popTimer);
+      clearTimeout(finishTimer);
     };
-  }, [stage, getSlotElement, finish]);
+  }, [origin, getSlotElement, finish]);
+
+  if (!origin) return null;
 
   return (
     <>
-      <div
-        className={`enter-backdrop pointer-events-none fixed inset-0 z-[9998] ${
-          stage === "pop" ? "animate-backdrop-in" : "opacity-0 transition-opacity duration-500"
-        }`}
-      />
+      <div className="enter-backdrop pointer-events-none fixed inset-0 z-[9998]" />
       <div
         ref={cardRef}
         className="pointer-events-none fixed z-[9999] animate-pop-enter"
         style={{
-          left: center.x,
-          top: center.y,
+          left: origin.x - CARD_W / 2,
+          top: origin.y - CARD_H / 2,
           width: CARD_W,
           height: CARD_H,
         }}
-        onAnimationEnd={handlePopEnd}
       >
         <MosaicCard message={message} className="h-full w-full" />
       </div>
