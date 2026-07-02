@@ -149,7 +149,7 @@ function EnteringCard({
     const startTop = origin.y - CARD_H / 2;
 
     let finishTimer: ReturnType<typeof setTimeout>;
-    let safetyTimer: ReturnType<typeof setTimeout>;
+    const safetyTimer = setTimeout(finish, ENTER_TIMEOUT_MS);
 
     const popTimer = setTimeout(() => {
       const card = cardRef.current;
@@ -177,8 +177,6 @@ function EnteringCard({
 
       finishTimer = setTimeout(finish, MOVE_MS + 50);
     }, POP_MS);
-
-    safetyTimer = setTimeout(finish, ENTER_TIMEOUT_MS);
 
     return () => {
       clearTimeout(popTimer);
