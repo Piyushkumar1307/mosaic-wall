@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, forwardRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import type { Message } from "@/lib/db";
 
@@ -11,7 +11,8 @@ const CARD_H = 154;
 const FLOAT_PAD = 14;
 const POP_MS = 1400;
 const MOVE_MS = 900;
-const POLL_MS = 500;
+const POLL_MS = 300;
+const ENTER_TIMEOUT_MS = POP_MS + MOVE_MS + 800;
 
 type CardPhase = "entering" | "settled" | "exiting";
 
@@ -118,18 +119,20 @@ function FloatingCard({ message }: { message: DisplayCard }) {
 
 function EnteringCard({
   message,
+  displaySlot,
+  slotRefs,
   getCenterPoint,
-  getSlotElement,
   onComplete,
 }: {
   message: DisplayCard;
+  displaySlot: number;
+  slotRefs: React.RefObject<(HTMLDivElement | null)[]>;
   getCenterPoint: () => { x: number; y: number };
-  getSlotElement: () => HTMLDivElement | null;
   onComplete: (id: number) => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const completedRef = useRef(false);
-  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
+  const [origin, setOrigin] = useState(() => getCenterPoint());
 
   const finish = useCallback(() => {
     if (completedRef.current) return;
@@ -137,24 +140,20 @@ function EnteringCard({
     onComplete(message.id);
   }, [message.id, onComplete]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setOrigin(getCenterPoint());
-    const onResize = () => setOrigin(getCenterPoint());
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
   }, [getCenterPoint]);
 
   useEffect(() => {
-    if (!origin) return;
-
     const startLeft = origin.x - CARD_W / 2;
     const startTop = origin.y - CARD_H / 2;
 
     let finishTimer: ReturnType<typeof setTimeout>;
+    let safetyTimer: ReturnType<typeof setTimeout>;
 
     const popTimer = setTimeout(() => {
       const card = cardRef.current;
-      const target = getSlotElement();
+      const target = slotRefs.current[displaySlot];
 
       if (!card || !target) {
         finish();
@@ -179,13 +178,14 @@ function EnteringCard({
       finishTimer = setTimeout(finish, MOVE_MS + 50);
     }, POP_MS);
 
+    safetyTimer = setTimeout(finish, ENTER_TIMEOUT_MS);
+
     return () => {
       clearTimeout(popTimer);
       clearTimeout(finishTimer);
+      clearTimeout(safetyTimer);
     };
-  }, [origin, getSlotElement, finish]);
-
-  if (!origin) return null;
+  }, [origin, displaySlot, slotRefs, finish]);
 
   return (
     <>
@@ -217,10 +217,15 @@ export default function DisplayPage() {
     Array.from({ length: MAX_SLOTS }, () => null)
   );
 
-  const getSlotElement = useCallback(
-    (slot: number) => () => slotRefs.current[slot],
-    []
-  );
+  const forceSettleStuck = useCallback((id: number) => {
+    setCards((prev) =>
+      prev.map((c) =>
+        c.id === id && c.phase === "entering"
+          ? { ...c, phase: "settled" as const }
+          : c
+      )
+    );
+  }, []);
 
   const getCenterPoint = useCallback(() => {
     const area = gridAreaRef.current;
@@ -303,7 +308,10 @@ export default function DisplayPage() {
 
     async function poll() {
       try {
-        const res = await fetch("/api/messages", { cache: "no-store" });
+        const res = await fetch(`/api/messages?_=${Date.now()}`, {
+          cache: "no-store",
+          headers: { Pragma: "no-cache", "Cache-Control": "no-cache" },
+        });
         if (!res.ok || !active) return;
         const data = await res.json();
         const messages: Message[] = data.messages ?? [];
@@ -385,6 +393,14 @@ export default function DisplayPage() {
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     for (const card of cards) {
+      if (card.phase === "entering") {
+        timers.push(
+          setTimeout(
+            () => forceSettleStuck(card.id),
+            ENTER_TIMEOUT_MS + 500
+          )
+        );
+      }
       if (card.phase === "exiting") {
         timers.push(
           setTimeout(() => {
@@ -394,7 +410,7 @@ export default function DisplayPage() {
       }
     }
     return () => timers.forEach(clearTimeout);
-  }, [cards]);
+  }, [cards, forceSettleStuck]);
 
   return (
     <main className="relative flex h-dvh w-full flex-col overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950">
@@ -461,8 +477,9 @@ export default function DisplayPage() {
             <EnteringCard
               key={activeEntering.id}
               message={activeEntering}
+              displaySlot={getDisplaySlot(activeEntering)}
+              slotRefs={slotRefs}
               getCenterPoint={getCenterPoint}
-              getSlotElement={getSlotElement(getDisplaySlot(activeEntering))}
               onComplete={settleCard}
             />,
             document.body
