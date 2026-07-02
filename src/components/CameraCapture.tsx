@@ -2,10 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 
+const OUTPUT_SIZE = 720;
+
 type CameraCaptureProps = {
   onCapture: (dataUrl: string) => void;
   onClose: () => void;
 };
+
+/** Center-crop the video feed to a square — fills frame, no letterboxing. */
+function drawSquareCrop(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  size: number
+) {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return;
+
+  const cropSize = Math.min(vw, vh);
+  const sx = (vw - cropSize) / 2;
+  const sy = (vh - cropSize) / 2;
+
+  ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, size, size);
+}
 
 export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -28,6 +47,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
             facingMode: "user",
             width: { ideal: 720 },
             height: { ideal: 720 },
+            aspectRatio: { ideal: 1 },
           },
           audio: false,
         });
@@ -62,17 +82,14 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
     const video = videoRef.current;
     if (!video || !ready) return;
 
-    const size = Math.min(video.videoWidth, video.videoHeight, 480);
     const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = OUTPUT_SIZE;
+    canvas.height = OUTPUT_SIZE;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const sx = (video.videoWidth - size) / 2;
-    const sy = (video.videoHeight - size) / 2;
-    ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+    drawSquareCrop(ctx, video, OUTPUT_SIZE);
 
     streamRef.current?.getTracks().forEach((track) => track.stop());
     onCapture(canvas.toDataURL("image/jpeg", 0.82));
@@ -92,22 +109,29 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
         <div className="w-16" />
       </div>
 
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative flex flex-1 items-center justify-center px-4">
         {error ? (
           <div className="flex h-full items-center justify-center px-6 text-center text-rose-300">
             {error}
           </div>
         ) : (
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            className="h-full w-full object-cover"
-          />
+          <div className="relative aspect-square w-full max-w-md max-h-[min(100%,80vw)] overflow-hidden rounded-xl">
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              className="h-full w-full object-cover"
+            />
+            <div className="pointer-events-none absolute inset-0 rounded-xl border-2 border-white/50" />
+          </div>
         )}
       </div>
 
-      <div className="flex justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6">
+      <p className="px-6 pb-2 text-center text-xs text-slate-400">
+        Square photo — fills the frame
+      </p>
+
+      <div className="flex justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
         <button
           type="button"
           onClick={handleCapture}

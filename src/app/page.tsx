@@ -3,6 +3,24 @@
 import { FormEvent, useState } from "react";
 import { CameraCapture } from "@/components/CameraCapture";
 
+const PRESET_MESSAGES = [
+  "Having an amazing time! 🎉",
+  "Best day ever with great people!",
+  "Smiles all around today 😊",
+  "Making memories that last forever",
+  "So grateful to be here!",
+  "This moment is everything ✨",
+  "Cheers to good vibes only!",
+  "Living my best life right now",
+  "What a beautiful celebration!",
+  "Forever thankful for today",
+  "Good times and great company",
+  "Happiness looks good on us!",
+  "Here's to new adventures 🥂",
+  "Couldn't ask for a better day",
+  "Love, laughter, and lots of fun!",
+];
+
 export default function SubmitPage() {
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
@@ -64,7 +82,7 @@ export default function SubmitPage() {
           </p>
           <h1 className="text-2xl font-semibold text-white">Join the wall</h1>
           <p className="text-sm text-slate-400 mt-2">
-            Camera photo, your name, and a short message
+            Camera photo, your name, and pick a message
           </p>
         </header>
 
@@ -99,18 +117,25 @@ export default function SubmitPage() {
               >
                 Your message
               </label>
-              <textarea
+              <select
                 id="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Write a short message..."
-                maxLength={280}
-                rows={3}
-                className="w-full resize-none rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
-              />
-              <p className="mt-1 text-right text-xs text-slate-500">
-                {message.length}/280
-              </p>
+                className="w-full appearance-none rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-base text-white focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
+              >
+                <option value="" className="bg-slate-900 text-slate-400">
+                  Pick a message (optional)
+                </option>
+                {PRESET_MESSAGES.map((preset) => (
+                  <option
+                    key={preset}
+                    value={preset}
+                    className="bg-slate-900 text-white"
+                  >
+                    {preset}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -118,7 +143,7 @@ export default function SubmitPage() {
               <button
                 type="button"
                 onClick={() => setShowCamera(true)}
-                className="relative w-full aspect-[4/3] max-h-[220px] rounded-2xl border-2 border-dashed border-slate-600/70 bg-slate-950/40 overflow-hidden transition active:scale-[0.99] hover:border-sky-400/50"
+                className="relative w-full aspect-square max-w-[280px] mx-auto rounded-2xl border-2 border-dashed border-slate-600/70 bg-slate-950/40 overflow-hidden transition active:scale-[0.99] hover:border-sky-400/50"
               >
                 {photoPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
