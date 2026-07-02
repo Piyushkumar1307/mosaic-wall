@@ -10,7 +10,7 @@ const CARD_W = 110;
 const CARD_H = 154;
 const FLOAT_PAD = 14;
 const POP_MS = 1400;
-const MOVE_MS = 1000;
+const MOVE_MS = 1200;
 const POLL_MS = 500;
 
 type CardPhase = "entering" | "settled" | "exiting";
@@ -189,14 +189,13 @@ function EnteringCard({
       const cardRect = card.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
 
-      const dx =
-        targetRect.left +
-        targetRect.width / 2 -
-        (cardRect.left + cardRect.width / 2);
-      const dy =
-        targetRect.top +
-        targetRect.height / 2 -
-        (cardRect.top + cardRect.height / 2);
+      const cardCx = cardRect.left + cardRect.width / 2;
+      const cardCy = cardRect.top + cardRect.height / 2;
+      const targetCx = targetRect.left + targetRect.width / 2;
+      const targetCy = targetRect.top + targetRect.height / 2;
+
+      const dx = targetCx - cardCx;
+      const dy = targetCy - cardCy;
 
       const onTransitionEnd = (event: TransitionEvent) => {
         if (event.propertyName !== "transform" || cleaned) return;
@@ -206,16 +205,21 @@ function EnteringCard({
         finish();
       };
 
-      card.addEventListener("transitionend", onTransitionEnd);
+      // Snap to exact pixel position before starting CSS transition (prevents pop→glide jump)
       card.classList.remove("animate-pop-enter");
       card.style.animation = "none";
+      card.style.transition = "none";
+      card.style.left = `${cardCx}px`;
+      card.style.top = `${cardCy}px`;
       card.style.transform = "translate(-50%, -50%) scale(1)";
 
+      void card.offsetHeight;
+
+      card.addEventListener("transitionend", onTransitionEnd);
+
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          card.style.transition = `transform ${MOVE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
-          card.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1)`;
-        });
+        card.style.transition = `transform ${MOVE_MS}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
+        card.style.transform = `translate3d(calc(-50% + ${dx}px), calc(-50% + ${dy}px), 0) scale(1)`;
       });
 
       moveTimer = setTimeout(() => {
@@ -223,10 +227,11 @@ function EnteringCard({
         cleaned = true;
         card.removeEventListener("transitionend", onTransitionEnd);
         finish();
-      }, MOVE_MS + 200);
+      }, MOVE_MS + 250);
     }
 
-    runMove();
+    // Small delay so pop animation fully commits before measuring
+    moveTimer = setTimeout(runMove, 32);
     return () => {
       cleaned = true;
       clearTimeout(moveTimer);
@@ -235,7 +240,11 @@ function EnteringCard({
 
   return (
     <>
-      <div className="enter-backdrop pointer-events-none fixed inset-0 z-[9998] animate-backdrop-in" />
+      <div
+        className={`enter-backdrop pointer-events-none fixed inset-0 z-[9998] ${
+          stage === "pop" ? "animate-backdrop-in" : "opacity-0 transition-opacity duration-500"
+        }`}
+      />
       <div
         ref={cardRef}
         className="pointer-events-none fixed z-[9999] animate-pop-enter"
