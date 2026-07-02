@@ -9,7 +9,7 @@ const GRID_COLS = 5;
 const CARD_W = 110;
 const CARD_H = 154;
 const FLOAT_PAD = 14;
-const POP_MS = 1400;
+const POP_MS = 3400;
 const MOVE_MS = 900;
 const POLL_MS = 300;
 const ENTER_TIMEOUT_MS = POP_MS + MOVE_MS + 800;
@@ -27,18 +27,17 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-function pickRandomEmptySlot(
+function pickNextEmptySlot(
   occupied: Set<number>,
-  exitingSlots: number[],
-  seed: number
+  exitingSlots: number[]
 ): number {
-  const empty: number[] = [];
   for (let i = 0; i < MAX_SLOTS; i++) {
-    if (!occupied.has(i)) empty.push(i);
+    if (!occupied.has(i)) return i;
   }
-  if (empty.length > 0) return empty[seed % empty.length];
-  if (exitingSlots.length > 0) return exitingSlots[seed % exitingSlots.length];
-  return seed % MAX_SLOTS;
+  if (exitingSlots.length > 0) {
+    return Math.min(...exitingSlots);
+  }
+  return 0;
 }
 
 function getDisplaySlot(card: DisplayCard): number {
@@ -361,20 +360,12 @@ export default function DisplayPage() {
               });
               knownIdsRef.current.add(msg.id);
             } else if (!isInitialLoad && !knownIdsRef.current.has(msg.id)) {
-              const displaySlot = pickRandomEmptySlot(
-                occupied,
-                exitingSlots,
-                hashString(String(msg.id))
-              );
+              const displaySlot = pickNextEmptySlot(occupied, exitingSlots);
               occupied.add(displaySlot);
               knownIdsRef.current.add(msg.id);
               next.push({ ...msg, phase: "entering", displaySlot });
             } else {
-              const displaySlot = pickRandomEmptySlot(
-                occupied,
-                exitingSlots,
-                hashString(String(msg.id))
-              );
+              const displaySlot = pickNextEmptySlot(occupied, exitingSlots);
               occupied.add(displaySlot);
               knownIdsRef.current.add(msg.id);
               next.push({ ...msg, phase: "settled", displaySlot });

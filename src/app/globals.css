@@ -64,7 +64,7 @@ body {
 }
 
 .animate-pop-enter {
-  animation: pop-center 1.4s ease-out forwards;
+  animation: pop-center 3.4s ease-out forwards;
   transform-origin: center center;
 }
 
