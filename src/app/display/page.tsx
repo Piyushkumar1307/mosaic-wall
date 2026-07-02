@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, forwardRef } from "react";
+import { useCallback, useEffect, useRef, useState, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import type { Message } from "@/lib/db";
 
@@ -43,6 +43,26 @@ function pickRandomEmptySlot(
 
 function getDisplaySlot(card: DisplayCard): number {
   return card.displaySlot;
+}
+
+function cardsSnapshotEqual(a: DisplayCard[], b: DisplayCard[]): boolean {
+  if (a.length !== b.length) return false;
+  const byId = (list: DisplayCard[]) =>
+    [...list].sort((x, y) => x.id - y.id);
+  const aSorted = byId(a);
+  const bSorted = byId(b);
+  for (let i = 0; i < aSorted.length; i++) {
+    const left = aSorted[i];
+    const right = bSorted[i];
+    if (
+      left.id !== right.id ||
+      left.phase !== right.phase ||
+      left.displaySlot !== right.displaySlot
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 const MosaicCard = forwardRef<
@@ -132,7 +152,8 @@ function EnteringCard({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const completedRef = useRef(false);
-  const [origin, setOrigin] = useState(() => getCenterPoint());
+  const centerRef = useRef(getCenterPoint());
+  const center = centerRef.current;
 
   const finish = useCallback(() => {
     if (completedRef.current) return;
@@ -140,13 +161,9 @@ function EnteringCard({
     onComplete(message.id);
   }, [message.id, onComplete]);
 
-  useLayoutEffect(() => {
-    setOrigin(getCenterPoint());
-  }, [getCenterPoint]);
-
   useEffect(() => {
-    const startLeft = origin.x - CARD_W / 2;
-    const startTop = origin.y - CARD_H / 2;
+    const startLeft = center.x - CARD_W / 2;
+    const startTop = center.y - CARD_H / 2;
 
     let finishTimer: ReturnType<typeof setTimeout>;
     const safetyTimer = setTimeout(finish, ENTER_TIMEOUT_MS);
@@ -183,7 +200,7 @@ function EnteringCard({
       clearTimeout(finishTimer);
       clearTimeout(safetyTimer);
     };
-  }, [origin, displaySlot, slotRefs, finish]);
+  }, [displaySlot, message.id, slotRefs, finish, center]);
 
   return (
     <>
@@ -192,8 +209,8 @@ function EnteringCard({
         ref={cardRef}
         className="pointer-events-none fixed z-[9999] animate-pop-enter"
         style={{
-          left: origin.x - CARD_W / 2,
-          top: origin.y - CARD_H / 2,
+          left: center.x - CARD_W / 2,
+          top: center.y - CARD_H / 2,
           width: CARD_W,
           height: CARD_H,
         }}
@@ -213,6 +230,12 @@ export default function DisplayPage() {
   const gridAreaRef = useRef<HTMLDivElement>(null);
   const slotRefs = useRef<(HTMLDivElement | null)[]>(
     Array.from({ length: MAX_SLOTS }, () => null)
+  );
+  const stuckTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+  const exitingTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
+    new Map()
   );
 
   const forceSettleStuck = useCallback((id: number) => {
@@ -246,13 +269,11 @@ export default function DisplayPage() {
   const settledBySlot = new Map<number, DisplayCard>();
   const enteringCards: DisplayCard[] = [];
   const exitingCards: DisplayCard[] = [];
-  const enteringSlotSet = new Set<number>();
 
   for (const card of cards) {
     const slot = getDisplaySlot(card);
     if (card.phase === "entering") {
       enteringCards.push(card);
-      enteringSlotSet.add(slot);
     } else if (card.phase === "exiting") {
       exitingCards.push(card);
     } else {
@@ -373,7 +394,9 @@ export default function DisplayPage() {
             initialLoadDoneRef.current = true;
           }
 
-          return [...next, ...exiting];
+          const result = [...next, ...exiting];
+          if (cardsSnapshotEqual(prev, result)) return prev;
+          return result;
         });
       } catch {
         // ignore transient errors
@@ -389,26 +412,54 @@ export default function DisplayPage() {
   }, []);
 
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    for (const card of cards) {
-      if (card.phase === "entering") {
-        timers.push(
-          setTimeout(
-            () => forceSettleStuck(card.id),
-            ENTER_TIMEOUT_MS + 500
-          )
-        );
-      }
-      if (card.phase === "exiting") {
-        timers.push(
-          setTimeout(() => {
-            setCards((prev) => prev.filter((c) => c.id !== card.id));
-          }, 500)
-        );
+    const enteringIds = new Set(
+      cards.filter((c) => c.phase === "entering").map((c) => c.id)
+    );
+
+    for (const [id, timer] of stuckTimersRef.current) {
+      if (!enteringIds.has(id)) {
+        clearTimeout(timer);
+        stuckTimersRef.current.delete(id);
       }
     }
-    return () => timers.forEach(clearTimeout);
+
+    for (const card of cards) {
+      if (card.phase !== "entering") continue;
+      if (stuckTimersRef.current.has(card.id)) continue;
+
+      const timer = setTimeout(() => {
+        forceSettleStuck(card.id);
+        stuckTimersRef.current.delete(card.id);
+      }, ENTER_TIMEOUT_MS + 500);
+
+      stuckTimersRef.current.set(card.id, timer);
+    }
   }, [cards, forceSettleStuck]);
+
+  useEffect(() => {
+    const exitingIds = new Set(
+      cards.filter((c) => c.phase === "exiting").map((c) => c.id)
+    );
+
+    for (const [id, timer] of exitingTimersRef.current) {
+      if (!exitingIds.has(id)) {
+        clearTimeout(timer);
+        exitingTimersRef.current.delete(id);
+      }
+    }
+
+    for (const card of cards) {
+      if (card.phase !== "exiting") continue;
+      if (exitingTimersRef.current.has(card.id)) continue;
+
+      const timer = setTimeout(() => {
+        setCards((prev) => prev.filter((c) => c.id !== card.id));
+        exitingTimersRef.current.delete(card.id);
+      }, 500);
+
+      exitingTimersRef.current.set(card.id, timer);
+    }
+  }, [cards]);
 
   return (
     <main className="relative flex h-dvh w-full flex-col overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950">
@@ -442,10 +493,13 @@ export default function DisplayPage() {
         >
           {Array.from({ length: MAX_SLOTS }, (_, slot) => {
             const card = settledBySlot.get(slot);
+            const enteringAtSlot = enteringCards.find(
+              (c) => getDisplaySlot(c) === slot
+            );
             const exitingAtSlot = exitingCards.find(
               (c) => getDisplaySlot(c) === slot
             );
-            const isEntering = enteringSlotSet.has(slot);
+            const isActiveEntering = enteringAtSlot?.id === activeEntering?.id;
 
             return (
               <div
@@ -461,9 +515,16 @@ export default function DisplayPage() {
                     <MosaicCard message={exitingAtSlot} className="h-full w-full" />
                   </div>
                 )}
-                {card && !exitingAtSlot && !isEntering && (
+                {card && !exitingAtSlot && (
                   <FloatingCard message={card} />
                 )}
+                {enteringAtSlot &&
+                  !exitingAtSlot &&
+                  !isActiveEntering && (
+                    <FloatingCard
+                      message={{ ...enteringAtSlot, phase: "settled" }}
+                    />
+                  )}
               </div>
             );
           })}
