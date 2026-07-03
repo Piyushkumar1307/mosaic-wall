@@ -13,7 +13,8 @@ type CameraCaptureProps = {
 function drawSquareCrop(
   ctx: CanvasRenderingContext2D,
   video: HTMLVideoElement,
-  size: number
+  size: number,
+  flipHorizontal = false
 ) {
   const vw = video.videoWidth;
   const vh = video.videoHeight;
@@ -23,7 +24,17 @@ function drawSquareCrop(
   const sx = (vw - cropSize) / 2;
   const sy = (vh - cropSize) / 2;
 
+  if (flipHorizontal) {
+    ctx.save();
+    ctx.translate(size, 0);
+    ctx.scale(-1, 1);
+  }
+
   ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, size, size);
+
+  if (flipHorizontal) {
+    ctx.restore();
+  }
 }
 
 export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
@@ -89,7 +100,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    drawSquareCrop(ctx, video, OUTPUT_SIZE);
+    drawSquareCrop(ctx, video, OUTPUT_SIZE, true);
 
     streamRef.current?.getTracks().forEach((track) => track.stop());
     onCapture(canvas.toDataURL("image/jpeg", 0.82));
@@ -120,7 +131,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
               ref={videoRef}
               playsInline
               muted
-              className="h-full w-full object-cover"
+              className="h-full w-full -scale-x-100 object-cover"
             />
             <div className="pointer-events-none absolute inset-0 rounded-xl border-2 border-white/50" />
           </div>
