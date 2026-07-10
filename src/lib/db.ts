@@ -1,6 +1,8 @@
 import { neon } from "@neondatabase/serverless";
+import { uploadPhoto } from "@/lib/cloudinary";
 
-export const MAX_MESSAGES = 25;
+/** Server-side cap — display wall uses a smaller dynamic limit per screen. */
+export const MAX_STORED_MESSAGES = 500;
 
 export type Message = {
   id: number;
@@ -9,10 +11,7 @@ export type Message = {
   text: string | null;
   sequence: number;
   created_at: string;
-  slot: number;
 };
-
-type MessageRow = Omit<Message, "slot">;
 
 function getSql() {
   const url = process.env.DATABASE_URL;
@@ -22,22 +21,39 @@ function getSql() {
   return neon(url);
 }
 
-function withSlot(message: MessageRow): Message {
-  return {
-    ...message,
-    slot: (message.sequence - 1) % MAX_MESSAGES,
-  };
-}
-
-export async function getLatestMessages(): Promise<Message[]> {
+export async function getLatestMessages(limit: number): Promise<Message[]> {
   const sql = getSql();
+  const safeLimit = Math.max(1, Math.min(limit, MAX_STORED_MESSAGES));
+
   const rows = await sql`
     SELECT id, name, photo, text, sequence, created_at
-    FROM messages
-    ORDER BY sequence DESC
-    LIMIT ${MAX_MESSAGES}
+    FROM (
+      SELECT id, name, photo, text, sequence, created_at
+      FROM messages
+      ORDER BY sequence DESC
+      LIMIT ${safeLimit}
+    ) AS latest
+    ORDER BY sequence ASC
   `;
-  return (rows as MessageRow[]).reverse().map(withSlot);
+
+  return rows as Message[];
+}
+
+async function resolvePhotoUrl(photo: string): Promise<string> {
+  const trimmed = photo.trim();
+
+  if (trimmed.startsWith("data:image/")) {
+    if (trimmed.length > 8_000_000) {
+      throw new Error("Photo is too large");
+    }
+    return uploadPhoto(trimmed);
+  }
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+
+  throw new Error("Invalid photo format");
 }
 
 export async function addMessage(input: {
@@ -47,7 +63,6 @@ export async function addMessage(input: {
 }): Promise<Message> {
   const sql = getSql();
   const name = input.name.trim();
-  const photo = input.photo.trim();
   const text = input.text?.trim() ?? "";
 
   if (!name) {
@@ -56,30 +71,26 @@ export async function addMessage(input: {
   if (name.length > 100) {
     throw new Error("Name is too long (max 100 characters)");
   }
-  if (!photo) {
+  if (!input.photo.trim()) {
     throw new Error("Photo is required");
-  }
-  if (!photo.startsWith("data:image/")) {
-    throw new Error("Invalid photo format");
-  }
-  if (photo.length > 500_000) {
-    throw new Error("Photo is too large");
   }
   if (text.length > 280) {
     throw new Error("Message is too long (max 280 characters)");
   }
 
+  const photoUrl = await resolvePhotoUrl(input.photo);
+
   const rows = await sql`
     INSERT INTO messages (name, photo, text)
-    VALUES (${name}, ${photo}, ${text || null})
+    VALUES (${name}, ${photoUrl}, ${text || null})
     RETURNING id, name, photo, text, sequence, created_at
   `;
 
   const countRows = await sql`SELECT COUNT(*)::int AS count FROM messages`;
   const count = (countRows[0] as { count: number }).count;
 
-  if (count > MAX_MESSAGES) {
-    const toDelete = count - MAX_MESSAGES;
+  if (count > MAX_STORED_MESSAGES) {
+    const toDelete = count - MAX_STORED_MESSAGES;
     await sql`
       DELETE FROM messages
       WHERE id IN (
@@ -90,5 +101,5 @@ export async function addMessage(input: {
     `;
   }
 
-  return withSlot(rows[0] as MessageRow);
+  return rows[0] as Message;
 }

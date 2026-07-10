@@ -3,9 +3,15 @@ import { addMessage, getLatestMessages } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const messages = await getLatestMessages();
+    const { searchParams } = new URL(request.url);
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? Number.parseInt(limitParam, 10) : 50;
+
+    const messages = await getLatestMessages(
+      Number.isFinite(limit) && limit > 0 ? limit : 50
+    );
     return NextResponse.json({ messages });
   } catch (error) {
     console.error("GET /api/messages:", error);
@@ -24,7 +30,13 @@ export async function POST(request: Request) {
     const text = typeof body.text === "string" ? body.text : "";
 
     const message = await addMessage({ name, photo, text });
-    const messages = await getLatestMessages();
+
+    const { searchParams } = new URL(request.url);
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? Number.parseInt(limitParam, 10) : 50;
+    const messages = await getLatestMessages(
+      Number.isFinite(limit) && limit > 0 ? limit : 50
+    );
 
     return NextResponse.json({ message, messages }, { status: 201 });
   } catch (error) {

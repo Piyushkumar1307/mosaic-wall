@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useRef, useState, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import type { Message } from "@/lib/db";
+import {
+  computeGridLayout,
+  getFillSlotOrder,
+  type GridLayout,
+} from "@/lib/grid";
 
-const MAX_SLOTS = 25;
-const GRID_COLS = 5;
-const CENTER_SLOT = Math.floor(GRID_COLS / 2) + GRID_COLS * Math.floor(GRID_COLS / 2);
-const MAX_DISPLAY_SLOTS = MAX_SLOTS - 1;
-const CARD_W = 110;
-const CARD_H = 154;
 const FLOAT_PAD = 14;
 const POP_MS = 3400;
 const MOVE_MS = 900;
@@ -27,27 +26,6 @@ function hashString(str: string): number {
     hash |= 0;
   }
   return Math.abs(hash);
-}
-
-function pickNextEmptySlot(
-  occupied: Set<number>,
-  exitingSlots: number[]
-): number {
-  for (let i = 0; i < MAX_SLOTS; i++) {
-    if (i === CENTER_SLOT) continue;
-    if (!occupied.has(i)) return i;
-  }
-
-  const reusable = exitingSlots
-    .filter((slot) => slot !== CENTER_SLOT)
-    .sort((a, b) => a - b);
-  if (reusable.length > 0) return reusable[0];
-
-  for (let i = 0; i < MAX_SLOTS; i++) {
-    if (i !== CENTER_SLOT) return i;
-  }
-
-  return 0;
 }
 
 function getDisplaySlot(card: DisplayCard): number {
@@ -149,12 +127,16 @@ function FloatingCard({ message }: { message: DisplayCard }) {
 function EnteringCard({
   message,
   displaySlot,
+  cardW,
+  cardH,
   slotRefs,
   getCenterPoint,
   onComplete,
 }: {
   message: DisplayCard;
   displaySlot: number;
+  cardW: number;
+  cardH: number;
   slotRefs: React.RefObject<(HTMLDivElement | null)[]>;
   getCenterPoint: () => { x: number; y: number };
   onComplete: (id: number) => void;
@@ -171,8 +153,8 @@ function EnteringCard({
   }, [message.id, onComplete]);
 
   useEffect(() => {
-    const startLeft = center.x - CARD_W / 2;
-    const startTop = center.y - CARD_H / 2;
+    const startLeft = center.x - cardW / 2;
+    const startTop = center.y - cardH / 2;
 
     let finishTimer: ReturnType<typeof setTimeout>;
     const safetyTimer = setTimeout(finish, ENTER_TIMEOUT_MS);
@@ -209,7 +191,7 @@ function EnteringCard({
       clearTimeout(finishTimer);
       clearTimeout(safetyTimer);
     };
-  }, [displaySlot, message.id, slotRefs, finish, center]);
+  }, [displaySlot, message.id, slotRefs, finish, center, cardW, cardH]);
 
   return (
     <>
@@ -218,10 +200,10 @@ function EnteringCard({
         ref={cardRef}
         className="pointer-events-none fixed z-[9999] animate-pop-enter"
         style={{
-          left: center.x - CARD_W / 2,
-          top: center.y - CARD_H / 2,
-          width: CARD_W,
-          height: CARD_H,
+          left: center.x - cardW / 2,
+          top: center.y - cardH / 2,
+          width: cardW,
+          height: cardH,
         }}
       >
         <MosaicCard message={message} className="h-full w-full" />
@@ -230,22 +212,32 @@ function EnteringCard({
   );
 }
 
+const DEFAULT_LAYOUT = computeGridLayout(900, 700);
+
 export default function DisplayPage() {
   const [cards, setCards] = useState<DisplayCard[]>([]);
   const [mounted, setMounted] = useState(false);
-  const [gridScale, setGridScale] = useState(1);
+  const [layout, setLayout] = useState<GridLayout>(DEFAULT_LAYOUT);
   const knownIdsRef = useRef<Set<number>>(new Set());
   const initialLoadDoneRef = useRef(false);
   const gridAreaRef = useRef<HTMLDivElement>(null);
-  const slotRefs = useRef<(HTMLDivElement | null)[]>(
-    Array.from({ length: MAX_SLOTS }, () => null)
-  );
+  const layoutRef = useRef(layout);
+  const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
   const stuckTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
     new Map()
   );
   const exitingTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
     new Map()
   );
+
+  layoutRef.current = layout;
+
+  useEffect(() => {
+    slotRefs.current = Array.from(
+      { length: layout.totalSlots },
+      () => null
+    );
+  }, [layout.totalSlots]);
 
   const forceSettleStuck = useCallback((id: number) => {
     setCards((prev) =>
@@ -258,7 +250,7 @@ export default function DisplayPage() {
   }, []);
 
   const getCenterPoint = useCallback(() => {
-    const centerSlot = slotRefs.current[CENTER_SLOT];
+    const centerSlot = slotRefs.current[layout.centerSlot];
     if (centerSlot) {
       const rect = centerSlot.getBoundingClientRect();
       return {
@@ -276,7 +268,7 @@ export default function DisplayPage() {
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2,
     };
-  }, []);
+  }, [layout.centerSlot]);
 
   const settleCard = useCallback((id: number) => {
     setCards((prev) =>
@@ -321,23 +313,20 @@ export default function DisplayPage() {
   }, []);
 
   useEffect(() => {
-    function updateGridScale() {
+    function updateLayout() {
       const area = gridAreaRef.current;
       if (!area) return;
 
-      const gapX = 8;
-      const gapY = 12;
-      const gridW = GRID_COLS * CARD_W + (GRID_COLS - 1) * gapX;
-      const gridH = GRID_COLS * CARD_H + (GRID_COLS - 1) * gapY;
       const availW = area.clientWidth;
       const availH = area.clientHeight - FLOAT_PAD * 2;
+      if (availW <= 0 || availH <= 0) return;
 
-      setGridScale(Math.min(availW / gridW, availH / gridH));
+      setLayout(computeGridLayout(availW, availH));
     }
 
-    updateGridScale();
-    window.addEventListener("resize", updateGridScale);
-    return () => window.removeEventListener("resize", updateGridScale);
+    updateLayout();
+    window.addEventListener("resize", updateLayout);
+    return () => window.removeEventListener("resize", updateLayout);
   }, []);
 
   useEffect(() => {
@@ -345,51 +334,45 @@ export default function DisplayPage() {
 
     async function poll() {
       try {
-        const res = await fetch(`/api/messages?_=${Date.now()}`, {
-          cache: "no-store",
-          headers: { Pragma: "no-cache", "Cache-Control": "no-cache" },
-        });
+        const currentLayout = layoutRef.current;
+        const res = await fetch(
+          `/api/messages?limit=${currentLayout.maxDisplaySlots}&_=${Date.now()}`,
+          {
+            cache: "no-store",
+            headers: { Pragma: "no-cache", "Cache-Control": "no-cache" },
+          }
+        );
         if (!res.ok || !active) return;
         const data = await res.json();
         const messages: Message[] = data.messages ?? [];
+        const slotOrder = getFillSlotOrder(currentLayout);
+        const sorted = [...messages].sort((a, b) => a.sequence - b.sequence);
 
         setCards((prev) => {
           const next: DisplayCard[] = [];
           const exiting: DisplayCard[] = [];
           const isInitialLoad = !initialLoadDoneRef.current;
 
-          const occupied = new Set<number>([CENTER_SLOT]);
-          for (const c of prev.filter((p) => p.phase !== "exiting")) {
-            occupied.add(getDisplaySlot(c));
-          }
-
-          const exitingSlots = prev
-            .filter((p) => p.phase === "exiting")
-            .map((p) => getDisplaySlot(p));
-
-          for (const msg of messages) {
+          sorted.forEach((msg, index) => {
+            const displaySlot = slotOrder[index] ?? slotOrder[slotOrder.length - 1];
             const existing = prev.find((c) => c.id === msg.id);
 
             if (existing) {
               next.push({
                 ...msg,
-                displaySlot: existing.displaySlot,
+                displaySlot,
                 phase:
                   existing.phase === "entering" ? "entering" : "settled",
               });
               knownIdsRef.current.add(msg.id);
             } else if (!isInitialLoad && !knownIdsRef.current.has(msg.id)) {
-              const displaySlot = pickNextEmptySlot(occupied, exitingSlots);
-              occupied.add(displaySlot);
               knownIdsRef.current.add(msg.id);
               next.push({ ...msg, phase: "entering", displaySlot });
             } else {
-              const displaySlot = pickNextEmptySlot(occupied, exitingSlots);
-              occupied.add(displaySlot);
               knownIdsRef.current.add(msg.id);
               next.push({ ...msg, phase: "settled", displaySlot });
             }
-          }
+          });
 
           for (const card of prev) {
             if (
@@ -483,25 +466,25 @@ export default function DisplayPage() {
           Photo Wall
         </h1>
         <p className="mt-0.5 text-[10px] text-slate-400 sm:text-xs">
-          Showing latest {visibleCount} of {MAX_DISPLAY_SLOTS} entries
+          Showing latest {visibleCount} of {layout.maxDisplaySlots} entries
         </p>
       </header>
 
       <div
         ref={gridAreaRef}
-        className="relative z-0 flex w-full flex-1 min-h-0 items-center justify-center overflow-visible px-3 pb-2 sm:px-6"
+        className="relative z-0 flex w-full flex-1 min-h-0 items-center overflow-visible px-3 pb-2 sm:px-6"
         style={{ paddingTop: FLOAT_PAD, paddingBottom: FLOAT_PAD }}
       >
         <div
-          className="grid gap-x-2 gap-y-3 sm:gap-x-3 sm:gap-y-4"
+          className="grid w-full"
           style={{
-            gridTemplateColumns: `repeat(${GRID_COLS}, ${CARD_W}px)`,
-            gridTemplateRows: `repeat(${GRID_COLS}, ${CARD_H}px)`,
-            transform: `scale(${gridScale})`,
-            transformOrigin: "center center",
+            gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${layout.rows}, ${layout.cardH}px)`,
+            columnGap: layout.gapX,
+            rowGap: layout.gapY,
           }}
         >
-          {Array.from({ length: MAX_SLOTS }, (_, slot) => {
+          {Array.from({ length: layout.totalSlots }, (_, slot) => {
             const card = settledBySlot.get(slot);
             const enteringAtSlot = enteringCards.find(
               (c) => getDisplaySlot(c) === slot
@@ -509,7 +492,7 @@ export default function DisplayPage() {
             const exitingAtSlot = exitingCards.find(
               (c) => getDisplaySlot(c) === slot
             );
-            const isCenterGap = slot === CENTER_SLOT;
+            const isCenterGap = slot === layout.centerSlot;
             const isActiveEntering = enteringAtSlot?.id === activeEntering?.id;
 
             return (
@@ -518,10 +501,12 @@ export default function DisplayPage() {
                 ref={(el) => {
                   slotRefs.current[slot] = el;
                 }}
-                className={`relative overflow-visible ${
-                  isCenterGap ? "rounded-xl border border-dashed border-white/15" : ""
+                className={`relative min-w-0 overflow-visible ${
+                  isCenterGap
+                    ? "rounded-xl border border-dashed border-white/15"
+                    : ""
                 }`}
-                style={{ width: CARD_W, height: CARD_H }}
+                style={{ height: layout.cardH }}
                 aria-hidden={isCenterGap}
               >
                 {exitingAtSlot && !isCenterGap && (
@@ -552,6 +537,8 @@ export default function DisplayPage() {
               key={activeEntering.id}
               message={activeEntering}
               displaySlot={getDisplaySlot(activeEntering)}
+              cardW={layout.cardW}
+              cardH={layout.cardH}
               slotRefs={slotRefs}
               getCenterPoint={getCenterPoint}
               onComplete={settleCard}
