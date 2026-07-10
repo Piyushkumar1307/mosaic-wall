@@ -6,6 +6,8 @@ import type { Message } from "@/lib/db";
 
 const MAX_SLOTS = 25;
 const GRID_COLS = 5;
+const CENTER_SLOT = Math.floor(GRID_COLS / 2) + GRID_COLS * Math.floor(GRID_COLS / 2);
+const MAX_DISPLAY_SLOTS = MAX_SLOTS - 1;
 const CARD_W = 110;
 const CARD_H = 154;
 const FLOAT_PAD = 14;
@@ -32,11 +34,19 @@ function pickNextEmptySlot(
   exitingSlots: number[]
 ): number {
   for (let i = 0; i < MAX_SLOTS; i++) {
+    if (i === CENTER_SLOT) continue;
     if (!occupied.has(i)) return i;
   }
-  if (exitingSlots.length > 0) {
-    return Math.min(...exitingSlots);
+
+  const reusable = exitingSlots
+    .filter((slot) => slot !== CENTER_SLOT)
+    .sort((a, b) => a - b);
+  if (reusable.length > 0) return reusable[0];
+
+  for (let i = 0; i < MAX_SLOTS; i++) {
+    if (i !== CENTER_SLOT) return i;
   }
+
   return 0;
 }
 
@@ -248,6 +258,15 @@ export default function DisplayPage() {
   }, []);
 
   const getCenterPoint = useCallback(() => {
+    const centerSlot = slotRefs.current[CENTER_SLOT];
+    if (centerSlot) {
+      const rect = centerSlot.getBoundingClientRect();
+      return {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      };
+    }
+
     const area = gridAreaRef.current;
     if (!area) {
       return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
@@ -313,7 +332,7 @@ export default function DisplayPage() {
       const availW = area.clientWidth;
       const availH = area.clientHeight - FLOAT_PAD * 2;
 
-      setGridScale(Math.min(1, availW / gridW, availH / gridH));
+      setGridScale(Math.min(availW / gridW, availH / gridH));
     }
 
     updateGridScale();
@@ -339,7 +358,7 @@ export default function DisplayPage() {
           const exiting: DisplayCard[] = [];
           const isInitialLoad = !initialLoadDoneRef.current;
 
-          const occupied = new Set<number>();
+          const occupied = new Set<number>([CENTER_SLOT]);
           for (const c of prev.filter((p) => p.phase !== "exiting")) {
             occupied.add(getDisplaySlot(c));
           }
@@ -464,13 +483,13 @@ export default function DisplayPage() {
           Photo Wall
         </h1>
         <p className="mt-0.5 text-[10px] text-slate-400 sm:text-xs">
-          Showing latest {visibleCount} of 25 entries
+          Showing latest {visibleCount} of {MAX_DISPLAY_SLOTS} entries
         </p>
       </header>
 
       <div
         ref={gridAreaRef}
-        className="relative z-0 mx-auto flex w-full max-w-4xl flex-1 min-h-0 items-center justify-center overflow-visible px-2 pb-2 sm:px-4"
+        className="relative z-0 flex w-full flex-1 min-h-0 items-center justify-center overflow-visible px-3 pb-2 sm:px-6"
         style={{ paddingTop: FLOAT_PAD, paddingBottom: FLOAT_PAD }}
       >
         <div
@@ -490,6 +509,7 @@ export default function DisplayPage() {
             const exitingAtSlot = exitingCards.find(
               (c) => getDisplaySlot(c) === slot
             );
+            const isCenterGap = slot === CENTER_SLOT;
             const isActiveEntering = enteringAtSlot?.id === activeEntering?.id;
 
             return (
@@ -498,20 +518,24 @@ export default function DisplayPage() {
                 ref={(el) => {
                   slotRefs.current[slot] = el;
                 }}
-                className="relative overflow-visible"
+                className={`relative overflow-visible ${
+                  isCenterGap ? "rounded-xl border border-dashed border-white/15" : ""
+                }`}
                 style={{ width: CARD_W, height: CARD_H }}
+                aria-hidden={isCenterGap}
               >
-                {exitingAtSlot && (
+                {exitingAtSlot && !isCenterGap && (
                   <div className="absolute inset-0">
                     <MosaicCard message={exitingAtSlot} className="h-full w-full" />
                   </div>
                 )}
-                {card && !exitingAtSlot && (
+                {card && !exitingAtSlot && !isCenterGap && (
                   <FloatingCard message={card} />
                 )}
                 {enteringAtSlot &&
                   !exitingAtSlot &&
-                  !isActiveEntering && (
+                  !isActiveEntering &&
+                  !isCenterGap && (
                     <FloatingCard
                       message={{ ...enteringAtSlot, phase: "settled" }}
                     />
