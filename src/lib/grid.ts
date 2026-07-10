@@ -17,11 +17,41 @@ const MAX_COLS = 7;
 /** Text strip height — square photo + this = total card height. */
 export function computeTextBlockH(cardW: number): number {
   const nameSize = Math.max(13, Math.min(17, cardW * 0.115));
-  const messageSize = Math.max(12, Math.min(15, cardW * 0.095));
+  const minMessageSize = 8;
   const pad = 10;
   const nameLines = nameSize * 1.3 * 2;
-  const messageLines = messageSize * 1.35 * 2;
+  const messageLines = minMessageSize * 1.35 * 3;
   return Math.ceil(pad * 2 + nameLines + 4 + messageLines);
+}
+
+/** Estimate font size so text fits within maxLines inside card width. */
+export function fitCardTextSize(
+  text: string,
+  cardW: number,
+  {
+    maxSize,
+    minSize,
+    maxLines,
+  }: { maxSize: number; minSize: number; maxLines: number }
+): number {
+  if (!text.trim()) return maxSize;
+
+  const innerW = Math.max(cardW - 20, 48);
+  const lineHeight = 1.35;
+
+  for (let size = maxSize; size >= minSize; size -= 0.5) {
+    const charWidth = size * 0.48;
+    const charsPerLine = Math.max(1, innerW / charWidth);
+    const linesNeeded = Math.ceil(text.length / charsPerLine);
+    const maxHeight = size * lineHeight * maxLines;
+    const estimatedHeight = size * lineHeight * linesNeeded;
+
+    if (linesNeeded <= maxLines && estimatedHeight <= maxHeight + 0.5) {
+      return Math.round(size * 10) / 10;
+    }
+  }
+
+  return minSize;
 }
 
 export function computeCardH(cardW: number): number {

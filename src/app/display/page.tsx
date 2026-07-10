@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { Message } from "@/lib/db";
 import {
   computeGridLayout,
+  fitCardTextSize,
   getFillSlotOrder,
   type GridLayout,
 } from "@/lib/grid";
@@ -68,8 +69,18 @@ const MosaicCard = forwardRef<
   ref
 ) {
   const displayName = message.name || "Guest";
-  const nameSize = Math.round(Math.max(13, Math.min(17, cardW * 0.115)));
-  const messageSize = Math.round(Math.max(12, Math.min(15, cardW * 0.095)));
+  const nameSize = fitCardTextSize(displayName, cardW, {
+    maxSize: Math.min(17, cardW * 0.115),
+    minSize: 10,
+    maxLines: 2,
+  });
+  const messageSize = message.text
+    ? fitCardTextSize(message.text, cardW, {
+        maxSize: Math.min(15, cardW * 0.095),
+        minSize: 7,
+        maxLines: 3,
+      })
+    : 0;
 
   return (
     <div
@@ -97,15 +108,27 @@ const MosaicCard = forwardRef<
       </div>
       <div className="shrink-0 bg-white px-2.5 pt-2 pb-2.5">
         <p
-          className="text-center font-semibold leading-snug text-slate-900 line-clamp-2 break-words"
-          style={{ fontSize: nameSize }}
+          className="text-center font-semibold leading-snug text-slate-900 break-words"
+          style={{
+            fontSize: nameSize,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
         >
           {displayName}
         </p>
         {message.text && (
           <p
-            className="mt-1 text-center font-medium leading-snug text-slate-700 line-clamp-2 break-words"
-            style={{ fontSize: messageSize }}
+            className="mt-1 text-center font-medium leading-snug text-slate-700 break-words"
+            style={{
+              fontSize: messageSize,
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
           >
             {message.text}
           </p>
