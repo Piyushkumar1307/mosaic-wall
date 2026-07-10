@@ -10,10 +10,11 @@ import {
 } from "@/lib/grid";
 
 const FLOAT_PAD = 14;
-const POP_MS = 3400;
+const POP_MS = 1400;
+const HOLD_MS = 2000;
 const MOVE_MS = 900;
 const POLL_MS = 300;
-const ENTER_TIMEOUT_MS = POP_MS + MOVE_MS + 800;
+const ENTER_TIMEOUT_MS = POP_MS + HOLD_MS + MOVE_MS + 800;
 
 type CardPhase = "entering" | "settled" | "exiting";
 
@@ -199,7 +200,7 @@ function EnteringCard({
       card.style.top = `${targetRect.top}px`;
 
       finishTimer = setTimeout(finish, MOVE_MS + 50);
-    }, POP_MS);
+    }, POP_MS + HOLD_MS);
 
     return () => {
       clearTimeout(popTimer);
@@ -470,24 +471,21 @@ export default function DisplayPage() {
   }, [cards]);
 
   return (
-    <main className="relative flex h-dvh w-full flex-col overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950">
-      <div className="pointer-events-none absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_20%_20%,#38bdf8_0%,transparent_40%),radial-gradient(circle_at_80%_70%,#a78bfa_0%,transparent_35%)]" />
+    <main className="relative flex h-dvh w-full flex-col items-center overflow-hidden bg-black">
+      <div
+        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url(/display-bg.png)" }}
+      />
 
-      <header className="relative z-10 shrink-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 text-center sm:px-6">
-        <p className="text-[10px] uppercase tracking-[0.35em] text-slate-400">
-          Live Mosaic
-        </p>
-        <h1 className="mt-0.5 text-lg font-bold text-white sm:text-xl">
-          Photo Wall
+      <header className="relative z-10 w-full shrink-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 text-center sm:px-6">
+        <h1 className="text-3xl font-extrabold tracking-wide text-white sm:text-4xl">
+          Automation Wall
         </h1>
-        <p className="mt-0.5 text-[10px] text-slate-400 sm:text-xs">
-          Showing latest {visibleCount} of {layout.maxDisplaySlots} entries
-        </p>
       </header>
 
       <div
         ref={gridAreaRef}
-        className="relative z-0 flex w-full flex-1 min-h-0 items-center overflow-visible px-3 pb-2 sm:px-6"
+        className="relative z-0 flex w-full max-w-7xl flex-1 min-h-0 items-center justify-center overflow-visible px-3 pb-2 mx-auto sm:px-6"
         style={{ paddingTop: FLOAT_PAD, paddingBottom: FLOAT_PAD }}
       >
         <div
@@ -518,7 +516,7 @@ export default function DisplayPage() {
                 }}
                 className={`relative flex min-w-0 flex-col justify-start overflow-visible ${
                   isCenterGap
-                    ? "rounded-xl border border-dashed border-white/15"
+                    ? "rounded-xl border border-dashed border-yellow-400/25"
                     : ""
                 }`}
                 style={{ height: layout.cardH }}
@@ -568,7 +566,7 @@ export default function DisplayPage() {
 
         {visibleCount === 0 && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
-            <p className="text-center text-base text-slate-500 sm:text-lg">
+            <p className="text-center text-base text-slate-300 sm:text-lg">
               Waiting for photos...
             </p>
           </div>

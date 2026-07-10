@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { CameraCapture } from "@/components/CameraCapture";
+import { BrandHeader } from "@/components/BrandHeader";
 
 const PRESET_MESSAGES = [
   "Having an amazing time! 🎉",
@@ -84,26 +85,18 @@ export default function SubmitPage() {
 
   return (
     <>
-      <main className="min-h-dvh flex flex-col bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
-        <header className="px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-3 text-center sm:px-6">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-400 mb-2">
-            Mosaic Wall
-          </p>
-          <h1 className="text-2xl font-semibold text-white">Join the wall</h1>
-          <p className="text-sm text-slate-400 mt-2">
-            Camera photo, your name, and pick a message
-          </p>
-        </header>
+      <main className="min-h-dvh flex flex-col bg-black">
+        <BrandHeader />
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-1 flex-col px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 max-w-lg mx-auto w-full sm:px-6"
+          className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-6"
         >
-          <div className="space-y-5 flex-1">
+          <div className="flex-1 space-y-5">
             <div>
               <label
                 htmlFor="name"
-                className="mb-2 block text-sm font-medium text-slate-300"
+                className="mb-2 block text-center text-sm font-medium text-slate-300"
               >
                 Your name
               </label>
@@ -115,14 +108,14 @@ export default function SubmitPage() {
                 placeholder="Enter your name"
                 maxLength={100}
                 autoComplete="name"
-                className="w-full rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
+                className="w-full rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-center text-base text-white placeholder:text-center placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
               />
             </div>
 
             <div>
               <label
                 htmlFor="message"
-                className="mb-2 block text-sm font-medium text-slate-300"
+                className="mb-2 block text-center text-sm font-medium text-slate-300"
               >
                 Your message
               </label>
@@ -130,7 +123,7 @@ export default function SubmitPage() {
                 id="message"
                 value={messageSelection}
                 onChange={(e) => setMessageSelection(e.target.value)}
-                className="w-full appearance-none rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-base text-white focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
+                className="w-full appearance-none rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-center text-base text-white focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
               >
                 <option value="" className="bg-slate-900 text-slate-400">
                   Pick a message (optional)
@@ -159,17 +152,19 @@ export default function SubmitPage() {
                   placeholder="Write your own message"
                   maxLength={280}
                   rows={3}
-                  className="mt-3 w-full resize-none rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
+                  className="mt-3 w-full resize-none rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-center text-base text-white placeholder:text-center placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
                 />
               )}
             </div>
 
-            <div>
-              <p className="mb-2 text-sm font-medium text-slate-300">Your photo</p>
+            <div className="flex flex-col items-center">
+              <p className="mb-2 w-full text-center text-sm font-medium text-slate-300">
+                Your photo
+              </p>
               <button
                 type="button"
                 onClick={() => setShowCamera(true)}
-                className="relative w-full aspect-square max-w-[280px] mx-auto rounded-2xl border-2 border-dashed border-slate-600/70 bg-slate-950/40 overflow-hidden transition active:scale-[0.99] hover:border-sky-400/50"
+                className="relative aspect-square w-[min(100%,280px)] rounded-2xl border-2 border-dashed border-slate-600/70 bg-slate-950/40 overflow-hidden transition active:scale-[0.99] hover:border-sky-400/50"
               >
                 {photoPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -191,7 +186,7 @@ export default function SubmitPage() {
                 <button
                   type="button"
                   onClick={() => setShowCamera(true)}
-                  className="mt-2 w-full rounded-xl border border-slate-600/60 py-2.5 text-sm font-medium text-slate-300 active:bg-slate-800/60"
+                  className="mt-2 w-[min(100%,280px)] rounded-xl border border-slate-600/60 py-2.5 text-center text-sm font-medium text-slate-300 active:bg-slate-800/60"
                 >
                   Retake photo
                 </button>
