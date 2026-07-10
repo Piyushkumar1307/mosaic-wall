@@ -21,9 +21,12 @@ const PRESET_MESSAGES = [
   "Love, laughter, and lots of fun!",
 ];
 
+const CUSTOM_MESSAGE_OPTION = "__custom__";
+
 export default function SubmitPage() {
   const [name, setName] = useState("");
-  const [message, setMessage] = useState("");
+  const [messageSelection, setMessageSelection] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
   const [photoPreview, setPhotoPreview] = useState("");
   const [photoData, setPhotoData] = useState("");
   const [showCamera, setShowCamera] = useState(false);
@@ -47,10 +50,15 @@ export default function SubmitPage() {
     setError("");
 
     try {
+      const text =
+        messageSelection === CUSTOM_MESSAGE_OPTION
+          ? customMessage.trim()
+          : messageSelection;
+
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, photo: photoData, text: message }),
+        body: JSON.stringify({ name, photo: photoData, text }),
       });
 
       const data = await res.json();
@@ -60,7 +68,8 @@ export default function SubmitPage() {
       }
 
       setName("");
-      setMessage("");
+      setMessageSelection("");
+      setCustomMessage("");
       setPhotoData("");
       setPhotoPreview("");
       setStatus("sent");
@@ -119,12 +128,18 @@ export default function SubmitPage() {
               </label>
               <select
                 id="message"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                value={messageSelection}
+                onChange={(e) => setMessageSelection(e.target.value)}
                 className="w-full appearance-none rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-base text-white focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
               >
                 <option value="" className="bg-slate-900 text-slate-400">
                   Pick a message (optional)
+                </option>
+                <option
+                  value={CUSTOM_MESSAGE_OPTION}
+                  className="bg-slate-900 text-white"
+                >
+                  Custom message...
                 </option>
                 {PRESET_MESSAGES.map((preset) => (
                   <option
@@ -136,6 +151,17 @@ export default function SubmitPage() {
                   </option>
                 ))}
               </select>
+              {messageSelection === CUSTOM_MESSAGE_OPTION && (
+                <textarea
+                  id="custom-message"
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  placeholder="Write your own message"
+                  maxLength={280}
+                  rows={3}
+                  className="mt-3 w-full resize-none rounded-2xl border border-slate-600/60 bg-slate-950/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400/40"
+                />
+              )}
             </div>
 
             <div>
