@@ -56,32 +56,35 @@ const MosaicCard = forwardRef<
   HTMLDivElement,
   {
     message: DisplayCard;
+    cardW?: number;
     className?: string;
     style?: React.CSSProperties;
     onAnimationEnd?: (event: React.AnimationEvent<HTMLDivElement>) => void;
   }
 >(function MosaicCard(
-  { message, className = "", style, onAnimationEnd },
+  { message, cardW = 128, className = "", style, onAnimationEnd },
   ref
 ) {
   const displayName = message.name || "Guest";
+  const nameSize = Math.round(Math.max(13, Math.min(17, cardW * 0.115)));
+  const messageSize = Math.round(Math.max(12, Math.min(15, cardW * 0.095)));
 
   return (
     <div
       ref={ref}
       onAnimationEnd={onAnimationEnd}
-      className={`mosaic-card flex h-full w-full flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-lg shadow-black/20 ${
+      className={`mosaic-card flex w-full flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-lg shadow-black/20 ${
         message.phase === "exiting" ? "animate-fade-out" : ""
       } ${className}`}
       style={style}
     >
-      <div className="aspect-square w-full max-h-[62%] shrink-0 overflow-hidden bg-slate-100">
+      <div className="aspect-square w-full shrink-0 overflow-hidden bg-slate-100">
         {message.photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={message.photo}
             alt={displayName}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-center"
             draggable={false}
           />
         ) : (
@@ -90,12 +93,18 @@ const MosaicCard = forwardRef<
           </div>
         )}
       </div>
-      <div className="flex min-h-[58px] flex-1 flex-col justify-center bg-white px-2 py-1.5 sm:min-h-[64px] sm:px-2.5 sm:py-2">
-        <p className="text-center text-[11px] font-semibold leading-snug text-slate-800 sm:text-xs line-clamp-1">
+      <div className="shrink-0 bg-white px-2.5 pt-2 pb-2.5">
+        <p
+          className="text-center font-semibold leading-snug text-slate-900 line-clamp-2 break-words"
+          style={{ fontSize: nameSize }}
+        >
           {displayName}
         </p>
         {message.text && (
-          <p className="mt-1 text-center text-[10px] leading-snug text-slate-600 sm:text-[11px] line-clamp-2">
+          <p
+            className="mt-1 text-center font-medium leading-snug text-slate-700 line-clamp-2 break-words"
+            style={{ fontSize: messageSize }}
+          >
             {message.text}
           </p>
         )}
@@ -104,14 +113,20 @@ const MosaicCard = forwardRef<
   );
 });
 
-function FloatingCard({ message }: { message: DisplayCard }) {
+function FloatingCard({
+  message,
+  cardW,
+}: {
+  message: DisplayCard;
+  cardW: number;
+}) {
   const seed = hashString(`${message.id}`);
   const duration = 3.5 + (seed % 30) / 10;
   const delay = (seed % 20) / 10;
 
   return (
     <div
-      className="floating-card-wrapper absolute inset-0 animate-card-float"
+      className="floating-card-wrapper absolute inset-x-0 top-0 animate-card-float"
       style={
         {
           "--duration": `${duration}s`,
@@ -119,7 +134,7 @@ function FloatingCard({ message }: { message: DisplayCard }) {
         } as React.CSSProperties
       }
     >
-      <MosaicCard message={message} className="h-full w-full" />
+      <MosaicCard message={message} cardW={cardW} className="w-full" />
     </div>
   );
 }
@@ -206,7 +221,7 @@ function EnteringCard({
           height: cardH,
         }}
       >
-        <MosaicCard message={message} className="h-full w-full" />
+        <MosaicCard message={message} cardW={cardW} className="w-full" />
       </div>
     </>
   );
@@ -501,7 +516,7 @@ export default function DisplayPage() {
                 ref={(el) => {
                   slotRefs.current[slot] = el;
                 }}
-                className={`relative min-w-0 overflow-visible ${
+                className={`relative flex min-w-0 flex-col justify-start overflow-visible ${
                   isCenterGap
                     ? "rounded-xl border border-dashed border-white/15"
                     : ""
@@ -510,12 +525,16 @@ export default function DisplayPage() {
                 aria-hidden={isCenterGap}
               >
                 {exitingAtSlot && !isCenterGap && (
-                  <div className="absolute inset-0">
-                    <MosaicCard message={exitingAtSlot} className="h-full w-full" />
+                  <div className="absolute inset-x-0 top-0">
+                    <MosaicCard
+                      message={exitingAtSlot}
+                      cardW={layout.cardW}
+                      className="w-full"
+                    />
                   </div>
                 )}
                 {card && !exitingAtSlot && !isCenterGap && (
-                  <FloatingCard message={card} />
+                  <FloatingCard message={card} cardW={layout.cardW} />
                 )}
                 {enteringAtSlot &&
                   !exitingAtSlot &&
@@ -523,6 +542,7 @@ export default function DisplayPage() {
                   !isCenterGap && (
                     <FloatingCard
                       message={{ ...enteringAtSlot, phase: "settled" }}
+                      cardW={layout.cardW}
                     />
                   )}
               </div>
