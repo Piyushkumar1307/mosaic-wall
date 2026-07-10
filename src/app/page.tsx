@@ -5,21 +5,21 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { BrandHeader } from "@/components/BrandHeader";
 
 const PRESET_MESSAGES = [
-  "Having an amazing time! 🎉",
-  "Best day ever with great people!",
-  "Smiles all around today 😊",
-  "Making memories that last forever",
-  "So grateful to be here!",
-  "This moment is everything ✨",
-  "Cheers to good vibes only!",
-  "Living my best life right now",
-  "What a beautiful celebration!",
-  "Forever thankful for today",
-  "Good times and great company",
-  "Happiness looks good on us!",
-  "Here's to new adventures 🥂",
-  "Couldn't ask for a better day",
-  "Love, laughter, and lots of fun!",
+  "Let your strategy trade while you focus on your work.",
+  "Catch every breakout, even when you're offline.",
+  "Risk management, automated from entry to exit.",
+  "From TradingView alert to executed trade—in seconds.",
+  "Transform Chartink scans into automated trades.",
+  "Enter only when every condition is perfectly aligned.",
+  "Maintain consistent position sizing effortlessly.",
+  "Create powerful trading strategies—no coding required.",
+  "Give your trades room to breathe before exiting.",
+  "Smart hedging that activates only after execution.",
+  "Protect your capital with automatic daily loss control.",
+  "Stay informed with real-time trade notifications.",
+  "Track dozens of stocks while focusing on what matters.",
+  "Trade only within your preferred market hours.",
+  "Automate your strategy. Eliminate emotions. Maximize discipline.",
 ];
 
 const CUSTOM_MESSAGE_OPTION = "__custom__";
