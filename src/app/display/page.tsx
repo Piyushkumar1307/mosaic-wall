@@ -8,6 +8,7 @@ import {
   getFillSlotOrder,
   type GridLayout,
 } from "@/lib/grid";
+import { BrandHeader } from "@/components/BrandHeader";
 
 const FLOAT_PAD = 14;
 const POP_MS = 1400;
@@ -477,11 +478,13 @@ export default function DisplayPage() {
         style={{ backgroundImage: "url(/display-bg.png)" }}
       />
 
-      <header className="relative z-10 w-full shrink-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 text-center sm:px-6">
-        <h1 className="text-3xl font-extrabold tracking-wide text-white sm:text-4xl">
-          Automation Wall
-        </h1>
-      </header>
+      <BrandHeader
+        center={
+          <h1 className="whitespace-nowrap text-xl font-extrabold tracking-wide text-white sm:text-2xl md:text-3xl">
+            Automation Wall
+          </h1>
+        }
+      />
 
       <div
         ref={gridAreaRef}
