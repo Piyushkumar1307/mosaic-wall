@@ -10,8 +10,8 @@ export type GridLayout = {
   gapY: number;
 };
 
-const CARD_ASPECT = 154 / 110;
-const MIN_CARD_W = 88;
+const CARD_ASPECT = 178 / 110;
+const MIN_CARD_W = 96;
 const MIN_COLS = 3;
 const MAX_COLS = 14;
 

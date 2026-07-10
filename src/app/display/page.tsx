@@ -75,7 +75,7 @@ const MosaicCard = forwardRef<
       } ${className}`}
       style={style}
     >
-      <div className="aspect-square w-full shrink-0 overflow-hidden bg-slate-100">
+      <div className="aspect-square w-full max-h-[62%] shrink-0 overflow-hidden bg-slate-100">
         {message.photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -90,12 +90,12 @@ const MosaicCard = forwardRef<
           </div>
         )}
       </div>
-      <div className="flex min-h-[48px] flex-1 flex-col justify-center bg-white px-1.5 py-1">
-        <p className="text-center text-[10px] font-semibold leading-tight text-slate-800 sm:text-[11px] line-clamp-1">
+      <div className="flex min-h-[58px] flex-1 flex-col justify-center bg-white px-2 py-1.5 sm:min-h-[64px] sm:px-2.5 sm:py-2">
+        <p className="text-center text-[11px] font-semibold leading-snug text-slate-800 sm:text-xs line-clamp-1">
           {displayName}
         </p>
         {message.text && (
-          <p className="mt-0.5 text-center text-[9px] leading-tight text-slate-600 line-clamp-2">
+          <p className="mt-1 text-center text-[10px] leading-snug text-slate-600 sm:text-[11px] line-clamp-2">
             {message.text}
           </p>
         )}
