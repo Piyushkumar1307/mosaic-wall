@@ -12,6 +12,7 @@ import {
 import { BrandHeader } from "@/components/BrandHeader";
 
 const FLOAT_PAD = 14;
+const QR_PANEL_H = 120;
 const POP_MS = 1400;
 const HOLD_MS = 2000;
 const MOVE_MS = 900;
@@ -290,15 +291,6 @@ export default function DisplayPage() {
   }, []);
 
   const getCenterPoint = useCallback(() => {
-    const centerSlot = slotRefs.current[layout.centerSlot];
-    if (centerSlot) {
-      const rect = centerSlot.getBoundingClientRect();
-      return {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-      };
-    }
-
     const area = gridAreaRef.current;
     if (!area) {
       return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
@@ -308,7 +300,7 @@ export default function DisplayPage() {
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2,
     };
-  }, [layout.centerSlot]);
+  }, []);
 
   const settleCard = useCallback((id: number) => {
     setCards((prev) =>
@@ -357,8 +349,13 @@ export default function DisplayPage() {
       const area = gridAreaRef.current;
       if (!area) return;
 
-      const availW = area.clientWidth;
-      const availH = area.clientHeight - FLOAT_PAD * 2;
+      const styles = getComputedStyle(area);
+      const padL = Number.parseFloat(styles.paddingLeft) || 0;
+      const padR = Number.parseFloat(styles.paddingRight) || 0;
+      const padT = Number.parseFloat(styles.paddingTop) || 0;
+      const padB = Number.parseFloat(styles.paddingBottom) || 0;
+      const availW = Math.max(0, area.clientWidth - padL - padR);
+      const availH = Math.max(0, area.clientHeight - padT - padB);
       if (availW <= 0 || availH <= 0) return;
 
       setLayout(computeGridLayout(availW, availH));
@@ -511,8 +508,13 @@ export default function DisplayPage() {
 
       <div
         ref={gridAreaRef}
-        className="relative z-0 flex w-full max-w-7xl flex-1 min-h-0 items-center justify-center overflow-visible px-3 pb-2 mx-auto sm:px-6"
-        style={{ paddingTop: FLOAT_PAD, paddingBottom: FLOAT_PAD }}
+        className="relative z-0 mx-auto flex w-full max-w-7xl flex-1 min-h-0 items-center justify-center overflow-visible pr-3 sm:pr-6"
+        style={{
+          paddingTop: FLOAT_PAD,
+          paddingRight: 12,
+          paddingBottom: `calc(${FLOAT_PAD}px + ${QR_PANEL_H}px + 0.75rem)`,
+          paddingLeft: FLOAT_PAD,
+        }}
       >
         <div
           className="grid w-full"
@@ -540,11 +542,7 @@ export default function DisplayPage() {
                 ref={(el) => {
                   slotRefs.current[slot] = el;
                 }}
-                className={`relative flex min-w-0 flex-col justify-start overflow-visible ${
-                  isCenterGap
-                    ? "rounded-xl border border-dashed border-yellow-400/25"
-                    : ""
-                }`}
+                className="relative flex min-w-0 flex-col justify-start overflow-visible"
                 style={{ height: layout.cardH }}
                 aria-hidden={isCenterGap}
               >
@@ -574,6 +572,12 @@ export default function DisplayPage() {
           })}
         </div>
 
+        <div
+          className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-dashed border-yellow-400/30"
+          style={{ width: layout.cardW, height: layout.cardH }}
+          aria-hidden
+        />
+
         {mounted &&
           activeEntering &&
           createPortal(
@@ -597,6 +601,26 @@ export default function DisplayPage() {
             </p>
           </div>
         )}
+
+      </div>
+
+      <div className="pointer-events-none absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[3px] z-20 max-w-[calc(100%-1.5rem)]">
+        <div className="flex items-end gap-2">
+          <div className="shrink-0 rounded-xl bg-white p-2 shadow-lg shadow-black/40 sm:p-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/qr-code.png"
+              alt="Scan to join the wall"
+              className="block h-24 w-24 sm:h-28 sm:w-28"
+              draggable={false}
+            />
+          </div>
+          <div className="rounded-xl bg-white px-3.5 py-2.5 shadow-lg shadow-black/40 sm:px-4 sm:py-3">
+            <p className="whitespace-nowrap text-sm font-semibold leading-tight text-slate-900 sm:text-base md:text-lg">
+              Scan the QR code to share your automated trading requirements
+            </p>
+          </div>
+        </div>
       </div>
     </main>
   );
